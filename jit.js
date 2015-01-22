@@ -141,6 +141,20 @@ to single-step.
     },
 },
 'peephole', {
+    getPush: function (byte) {
+        switch (byte & 0xF8) {
+            case 0x00: case 0x08:
+                return "inst[" + (byte & 0x0F) + "]";
+            case 0x10: case 0x18:
+                return "temp[" + (6 + (byte & 0xF)) + "]";
+            case 0x20: case 0x28: case 0x30: case 0x38:
+                return "lit[" + (1 + (byte & 0x1F)) + "]";
+            case 0x40: case 0x48: case 0x50: case 0x58:
+                return "lit[" + (1 + (byte & 0x1F)) + "].pointers[1]";
+            case 0x70:
+                return this.simplePush["p" + byte.toString(16)];
+        }
+    },
     simplePush: {
         p70: "rcvr",
         p71: "vm.trueObj",
@@ -154,20 +168,21 @@ to single-step.
     peepholes: [
         {
             matches: function (counter, byte) {
+                var pushCodes = [0x00, 0x08, 0x10, 0x18, 0x20, 0x28, 0x30, 0x38, 0x40, 0x48, 0x50, 0x58, 0x70];
                 var flag = (byte & 0xF8);
                 switch (counter) {
                     case 0:
-                        return flag === 0x70;
+                        return pushCodes.indexOf(flag) > -1;
                     case 1:
-                        return flag === 0x70;
+                        return pushCodes.indexOf(flag) > -1;
                     case 2:
                         return flag === 0xB0;
                 }
             },
             byteCount: 3,
             generate: function (bytes) {
-                var push1 = this.simplePush["p" + bytes[0].toString(16)];
-                var push2 = this.simplePush["p" + bytes[1].toString(16)];
+                var push1 = this.getPush(bytes[0]);
+                var push2 = this.getPush(bytes[1]);
 
                 var op = {
                     nb0: "vm.primHandler.signed32BitIntegerFor(push1 + push2);",
@@ -182,16 +197,19 @@ to single-step.
 
                 var operation = op["n" + bytes[2].toString(16)].replace("push1", push1).replace("push2", push2);
 
+                if (this.debug) { this.generateDebugCode("optimized push push numericop"); }
                 this.generateLabel();
                 this.suppressNextLabel = true;
 
                 // if the op cannot be executed here, do a full send and return to main loop
                 // we need a label for coming back
-                this.needsLabel[this.pc] = true;
+                this.needsLabel[this.pc - 1] = true;
+                this.needsLabel[this.pc + 2] = true; // obviously
+
                 this.source.push(
                 "if (typeof ", push1, "  === 'number' && typeof ", push2, " === 'number') {\n",
                 "   stack[++vm.sp] = ", operation ,";\n",
-                "   vm.pc += 3; continue; \n",
+                "   vm.pc = ", this.pc + 2, "; continue; \n",
                 "}\n"
                 );
 
@@ -253,6 +271,8 @@ to single-step.
         this.needsLabel = {0: true}; // jump targets
         this.needsBreak = false;    // insert break check for previous bytecode
         this.needsAnyLabel = false; // omit switch/case if not necessary
+        this.suppressNextLabel = false;
+
         if (optClass && optSel)
             this.source.push("// ", optClass, ">>", optSel, "\n");
         this.source.push(
@@ -798,6 +818,8 @@ to single-step.
         this.sourceLabels[this.prevPC] = this.source.length;
         if (!this.suppressNextLabel) {
             this.source.push("case ", this.prevPC, ":\n");
+        } else {
+            this.source.push("\n");
         }
         this.suppressNextLabel = false;
         this.prevPC = this.pc;
