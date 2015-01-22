@@ -138,6 +138,53 @@ to single-step.
             'atEnd', '==', 'class', 'blockCopy:', 'value', 'value:', 'do:', 'new', 'new:', 'x', 'y'];
     },
 },
+'peephole', {
+    simplePush: {
+        p70: "rcvr",
+        p71: "vm.trueObj",
+        p72: "vm.falseObj",
+        p73: "vm.nilObj",
+        p74: "-1",
+        p75: "0",
+        p76: "1",
+        p77: "2"
+    },
+    peepholes: [
+        {
+            matches: function (counter, byte) {
+                var flag = (byte & 0xF8);
+                switch (counter) {
+                    case 0:
+                        return flag === 0x70;
+                    case 1:
+                        return flag === 0x70;
+                    case 2:
+                        return byte === 0xB2;
+                }
+            },
+            byteCount: 3,
+            generate: function (bytes) {
+                var push1 = this.simplePush["p" + bytes[0].toString(16)];
+                var push2 = this.simplePush["p" + bytes[1].toString(16)];
+
+                this.generateLabel();
+                this.suppressNextLabel = true;
+
+                // if the op cannot be executed here, do a full send and return to main loop
+                // we need a label for coming back
+                this.needsLabel[this.pc] = true;
+                this.source.push(
+                "if (typeof ", push1, "  === 'number' && typeof ", push2, " === 'number') {\n",
+                "   stack[++vm.sp] = ", push1, " < ", push2, " ? vm.trueObj : vm.falseObj;\n",
+                "   vm.pc += 3; continue; \n",
+                "}\n"
+                );
+
+                return;
+            }
+        }
+    ]
+},
 'accessing', {
     compile: function(method, optClass, optSel) {
         if (!method.isHot) {
@@ -207,6 +254,24 @@ to single-step.
         while (!this.done) {
             var byte = method.bytes[this.pc++],
                 byte2 = 0;
+
+            var peepholes = this.peepholes;
+            if (peepholes.length > 0) {
+                peepholes = peepholes.filter(function (peephole) {
+                    var i;
+                    for (i = 0; i < peephole.byteCount; i += 1) {
+                        if (!peephole.matches(i, method.bytes[this.pc - 1 + i])) {
+                            return false;
+                        }
+                    }
+                    return true;
+                }, this);
+                if (peepholes.length > 0) {
+                    console.log("compiled one!");
+                    peepholes[0].generate.call(this, method.bytes.subarray(this.pc - 1, this.pc - 1 + peepholes[0].byteCount));
+                }
+            }
+
             switch (byte & 0xF8) {
                 // load receiver variable
                 case 0x00: case 0x08:
@@ -234,16 +299,7 @@ to single-step.
                     break;
                 // Quick push
                 case 0x70:
-                    switch (byte) {
-                        case 0x70: this.generatePush("rcvr"); break;
-                        case 0x71: this.generatePush("vm.trueObj"); break;
-                        case 0x72: this.generatePush("vm.falseObj"); break;
-                        case 0x73: this.generatePush("vm.nilObj"); break;
-                        case 0x74: this.generatePush("-1"); break;
-                        case 0x75: this.generatePush("0"); break;
-                        case 0x76: this.generatePush("1"); break;
-                        case 0x77: this.generatePush("2"); break;
-                    }
+                    this.generatePush(this.simplePush["p" + byte.toString(16)]);
                     break;
                 // Quick return
                 case 0x78:
@@ -705,7 +761,10 @@ to single-step.
     generateLabel: function() {
         // remember label position for deleteUnneededLabels()
         this.sourceLabels[this.prevPC] = this.source.length;
-        this.source.push("case ", this.prevPC, ":\n");
+        if (!this.suppressNextLabel) {
+            this.source.push("case ", this.prevPC, ":\n");
+        }
+        this.suppressNextLabel = false;
         this.prevPC = this.pc;
     },
     generateDebugCode: function(comment) {
