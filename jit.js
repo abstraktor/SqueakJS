@@ -159,13 +159,26 @@ to single-step.
                     case 1:
                         return flag === 0x70;
                     case 2:
-                        return byte === 0xB2;
+                        return flag === 0xB0;
                 }
             },
             byteCount: 3,
             generate: function (bytes) {
                 var push1 = this.simplePush["p" + bytes[0].toString(16)];
                 var push2 = this.simplePush["p" + bytes[1].toString(16)];
+
+                var op = {
+                    nb0: "vm.primHandler.signed32BitIntegerFor(push1 + push2);",
+                    nb1: "vm.primHandler.signed32BitIntegerFor(push1 - push2);",
+                    nb2: "push1 < push2 ? vm.trueObj : vm.falseObj;",
+                    nb3: "push1 > push2 ? vm.trueObj : vm.falseObj;",
+                    nb4: "push1 <= push2 ? vm.trueObj : vm.falseObj;",
+                    nb5: "push1 >= push2 ? vm.trueObj : vm.falseObj;",
+                    nb6: "push1 === push2 ? vm.trueObj : vm.falseObj;",
+                    nb7: "push1 !== push2 ? vm.trueObj : vm.falseObj;"
+                };
+
+                var operation = op["n" + bytes[2].toString(16)].replace("push1", push1).replace("push2", push2);
 
                 this.generateLabel();
                 this.suppressNextLabel = true;
@@ -175,10 +188,12 @@ to single-step.
                 this.needsLabel[this.pc] = true;
                 this.source.push(
                 "if (typeof ", push1, "  === 'number' && typeof ", push2, " === 'number') {\n",
-                "   stack[++vm.sp] = ", push1, " < ", push2, " ? vm.trueObj : vm.falseObj;\n",
+                "   stack[++vm.sp] = ", operation ,";\n",
                 "   vm.pc += 3; continue; \n",
                 "}\n"
                 );
+
+                console.log(operation);
 
                 return;
             }
