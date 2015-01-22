@@ -201,15 +201,14 @@ to single-step.
                 this.generateLabel();
                 this.suppressNextLabel = true;
 
-                // if the op cannot be executed here, do a full send and return to main loop
-                // we need a label for coming back
-                this.needsLabel[this.pc - 1] = true;
-                this.needsLabel[this.pc + 2] = true; // obviously
+                var jumpOver = this.pc + 2;
+                //we need a label at the destination!
+                this.needsLabel[jumpOver] = true; // obviously
 
                 this.source.push(
                 "if (typeof ", push1, "  === 'number' && typeof ", push2, " === 'number') {\n",
                 "   stack[++vm.sp] = ", operation ,";\n",
-                "   vm.pc = ", this.pc + 2, "; continue; \n",
+                "   vm.pc = ", jumpOver, "; continue; \n",
                 "}\n"
                 );
 
