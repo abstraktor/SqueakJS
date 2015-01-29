@@ -2317,7 +2317,8 @@ Object.subclass('Squeak.Interpreter',
 
                 sqClass: this.getClass(newRcvr),
                 rcvr: newRcvr,
-                super: doSuper
+                super: doSuper,
+                primIndex: entry.primIndex
             }
         } else {
             entry = ic;
