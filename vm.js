@@ -2294,18 +2294,26 @@ Object.subclass('Squeak.Interpreter',
 'sending', {
     send: function(selector, argCount, doSuper) {
         var newRcvr = this.stackValue(argCount);
-        var lookupClass = this.getClass(newRcvr);
-        if (doSuper) {
-            lookupClass = this.method.methodClassForSuper();
-            lookupClass = lookupClass.pointers[Squeak.Class_superclass];
-        }
 
-        var entry = this.method.ic[this.pc];
+        var ic = this.method.ic[this.pc];
+        var entry;
 
-        if (!entry || entry.selector !== selector || entry.lkupClass !== lookupClass || entry.argCount !== argCount) {
+        if (!ic || ic.entry.argCount !== argCount || ic.entry.selector !== selector || ic.super !== doSuper || ic.rcvr !== newRcvr) {
+            var lookupClass = this.getClass(newRcvr);
+            if (doSuper) {
+                lookupClass = this.method.methodClassForSuper();
+                lookupClass = lookupClass.pointers[Squeak.Class_superclass];
+            }
+
             entry = this.findSelectorInClass(selector, argCount, lookupClass);
 
-            this.method.ic[this.pc] = entry;
+            this.method.ic[this.pc] = {
+                entry: entry,
+                rcvr: newRcvr,
+                super: doSuper
+            }
+        } else {
+            entry = ic.entry;
         }
 
         if (entry.primIndex) {
