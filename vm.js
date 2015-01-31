@@ -2298,7 +2298,7 @@ Object.subclass('Squeak.Interpreter',
         var ic = this.method.ic[this.pc];
         var entry;
 
-        if (!ic || ic.argCount !== argCount || ic.selector !== selector || ic.super !== doSuper || ic.rcvr !== newRcvr) {
+        if (!ic || ic.argCount !== argCount || ic.selector !== selector || ic.super !== doSuper || ic.sqClass !== this.getClass(newRcvr)) {
             var lookupClass = this.getClass(newRcvr);
             if (doSuper) {
                 lookupClass = this.method.methodClassForSuper();
@@ -2311,6 +2311,10 @@ Object.subclass('Squeak.Interpreter',
                 method: entry.method,
                 argCount: entry.argCount,
                 primIndex: entry.primIndex,
+                selector: entry.selector,
+                mClass: entry.mClass,
+
+                sqClass: this.getClass(newRcvr),
                 rcvr: newRcvr,
                 super: doSuper
             }
