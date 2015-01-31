@@ -656,24 +656,17 @@ to single-step.
         if (this.debug) this.generateDebugCode("send " + (prefix === "lit[" ? this.method.pointers[num].bytesAsString() : "..."));
         this.generateLabel();
 
-        this.source.push("vm.pc = ", this.pc, ";");
+        this.source.push("vm.pc = ", this.pc, "; var sendDone = false;");
 
-        if (ic && ic.primIndex && ic.primIndex === ic.entry.primIndex && this.vm.primHandler.primitiveFunctions[ic.primIndex] && ic.super === superSend && ic.entry.argCount === numArgs) {
+        if (ic && ic.primIndex > 0 && ic.super === superSend && ic.argCount === numArgs) {
             //debugger;
             this.source.push([
-                //"//if (ic.entry.selector !== selector || ic.super !== doSuper || ic.rcvr !== newRcvr) {",
+
                 "var ic = vm.method.ic[", this.pc ,"];",
-                //"debugger;",
-                "if (ic.rcvr === vm.stackValue(", numArgs ,") && ic.entry.selector === ", prefix, num, suffix ,") {",
-                    "var lookupClass = vm.getClass(ic.entry.selector);",
-                    "if (ic.super) {",
-                        "lookupClass = vm.method.methodClassForSuper();",
-                        "lookupClass = lookupClass.pointers[Squeak.Class_superclass];",
-                    "}",
-                    "debugger;",
-                    "if (ic.entry.lkupClass === lookupClass && vm.primHandler.primitiveFunctions[", ic.entry.primIndex, "].call(vm.primHandler, ", ic.entry.primIndex ,", ", numArgs, ")) {",
-                        "console.log('inline send');",
-                        "break;",
+
+                "if (ic.sqClass === vm.getClass(vm.stackValue(", numArgs ,")) && ic.selector === ", prefix, num, suffix ,") {",
+                    "if (vm.tryPrimitive(ic.primIndex, ", numArgs, ", ic.method)) {",
+                        "sendDone = true;",
                     "}",
                 "}"].join("\n")
             );
@@ -682,7 +675,7 @@ to single-step.
         // set pc, activate new method, and return to main loop
         // unless the method was a successfull primitive call (no context change)
         this.source.push(
-            "vm.send(", prefix, num, suffix, ", ", numArgs, ", ", superSend, "); ",
+            "if (!sendDone) vm.send(", prefix, num, suffix, ", ", numArgs, ", ", superSend, "); ",
             "if (context !== vm.activeContext || vm.breakOutOfInterpreter !== false) return bytecodes + ", this.pc, ";\n");
         this.needsBreak = false; // already checked
         // need a label for coming back after send
