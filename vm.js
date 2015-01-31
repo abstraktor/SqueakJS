@@ -2313,6 +2313,7 @@ Object.subclass('Squeak.Interpreter',
                 primIndex: entry.primIndex,
                 selector: entry.selector,
                 mClass: entry.mClass,
+                lkupClass: entry.lkupClass,
 
                 sqClass: this.getClass(newRcvr),
                 rcvr: newRcvr,
@@ -2325,7 +2326,7 @@ Object.subclass('Squeak.Interpreter',
         if (entry.primIndex) {
             //note details for verification of at/atput primitives
             this.verifyAtSelector = selector;
-            this.verifyAtClass = lookupClass;
+            this.verifyAtClass = entry.lkupClass;
         }
 
         this.executeNewMethod(newRcvr, entry.method, entry.argCount, entry.primIndex, entry.mClass, selector);
