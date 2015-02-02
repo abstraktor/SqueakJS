@@ -158,10 +158,10 @@ to single-step.
         p71: "vm.trueObj",
         p72: "vm.falseObj",
         p73: "vm.nilObj",
-        p74: "-1",
-        p75: "0",
-        p76: "1",
-        p77: "2"
+        p74: -1,
+        p75: 0,
+        p76: 1,
+        p77: 2
     },
     peepholes: [
         {
@@ -183,14 +183,14 @@ to single-step.
                 var push2 = this.getPush(bytes[1]);
 
                 var op = {
-                    nb0: "vm.primHandler.signed32BitIntegerFor(push1 + push2);",
-                    nb1: "vm.primHandler.signed32BitIntegerFor(push1 - push2);",
-                    nb2: "push1 < push2 ? vm.trueObj : vm.falseObj;",
-                    nb3: "push1 > push2 ? vm.trueObj : vm.falseObj;",
-                    nb4: "push1 <= push2 ? vm.trueObj : vm.falseObj;",
-                    nb5: "push1 >= push2 ? vm.trueObj : vm.falseObj;",
-                    nb6: "push1 === push2 ? vm.trueObj : vm.falseObj;",
-                    nb7: "push1 !== push2 ? vm.trueObj : vm.falseObj;"
+                    nb0: "vm.primHandler.signed32BitIntegerFor(push1 + push2)",
+                    nb1: "vm.primHandler.signed32BitIntegerFor(push1 - push2)",
+                    nb2: "push1 < push2 ? vm.trueObj : vm.falseObj",
+                    nb3: "push1 > push2 ? vm.trueObj : vm.falseObj",
+                    nb4: "push1 <= push2 ? vm.trueObj : vm.falseObj",
+                    nb5: "push1 >= push2 ? vm.trueObj : vm.falseObj",
+                    nb6: "push1 === push2 ? vm.trueObj : vm.falseObj",
+                    nb7: "push1 !== push2 ? vm.trueObj : vm.falseObj"
                 };
 
                 var operation = op["n" + bytes[2].toString(16)].replace("push1", push1).replace("push2", push2);
@@ -203,11 +203,20 @@ to single-step.
                 //we need a label at the destination!
                 this.needsLabel[jumpOver] = true; // obviously
 
+                if (typeof push1 === "number" && typeof push2 === "number") {
+                    this.source.push("if (true) {");
+                } else if (typeof push1 === "number") {
+                    this.source.push("if (typeof ", push2, " === 'number') {");
+                } else if (typeof push2 === "number") {
+                    this.source.push("if (typeof ", push1, "  === 'number') {");
+                } else {
+                    this.source.push("if (typeof ", push1, "  === 'number' && typeof ", push2, " === 'number') {");    
+                }
+
                 this.source.push(
-                "if (typeof ", push1, "  === 'number' && typeof ", push2, " === 'number') {\n",
-                "   stack[++vm.sp] = ", operation ,";\n",
-                "   vm.pc = ", jumpOver, "; continue; \n",
-                "}\n"
+                    "stack[++vm.sp] = ", operation ,";",
+                    "vm.pc = ", jumpOver, "; continue;",
+                "}"
                 );
 
                 return;
