@@ -210,8 +210,6 @@ to single-step.
                 "}\n"
                 );
 
-                console.log(operation);
-
                 return;
             }
         }
