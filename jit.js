@@ -680,7 +680,6 @@ to single-step.
         // unless the method was a successfull primitive call (no context change)
         this.source.push(
             "vm.send(", prefix, num, suffix, ", ", numArgs, ", ", superSend, "); ",
-            "if (!sendDone) vm.send(", prefix, num, suffix, ", ", numArgs, ", ", superSend, "); ",
             "if (context !== vm.activeContext || vm.breakOutOfInterpreter !== false) return bytecodes + ", this.pc, ";\n");
         this.needsBreak = false; // already checked
         // need a label for coming back after send
