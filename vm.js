@@ -2098,6 +2098,12 @@ Object.subclass('Squeak.Interpreter',
             : !this.nextWakeupTick ? 'sleep'        // all processes waiting
             : Math.max(1, this.nextWakeupTick - this.primHandler.millisecondClockValue());
         if (thenDo) thenDo(result);
+
+        if (this.isIdle && this.profilerRunning) {
+            console.profileEnd(this.profilerRunning);
+            //console.timeEnd(this.profilerRunning);
+        }
+
         return result;
     },
     goIdle: function() {
@@ -2393,6 +2399,12 @@ Object.subclass('Squeak.Interpreter',
         }
     },
     executeNewMethod: function(newRcvr, newMethod, argumentCount, primitiveIndex, optClass, optSel) {
+        if (optSel.hash === 2262) {
+            console.profile("benchmark");
+            //console.time("benchmark");
+            this.profilerRunning = "benchmark";
+        }
+
         this.sendCount++;
         if (newMethod === this.breakOnMethod) this.breakNow("executing method " + this.printMethod(newMethod, optClass, optSel));
         if (this.logSends) console.log(this.sendCount + ' ' + this.printMethod(newMethod, optClass, optSel));
