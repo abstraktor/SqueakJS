@@ -1,5 +1,3 @@
-var peepholesCounter = {};
-
 module('users.bert.SqueakJS.jit').requires("users.bert.SqueakJS.vm").toRun(function() {
 /*
  * Copyright (c) 2014 Bert Freudenberg
@@ -288,8 +286,7 @@ to single-step.
         
         this.done = false;
         while (!this.done) {
-            var byte = method.bytes[this.pc++],
-                byte2 = 0;
+            var byte = method.bytes[this.pc++];
 
             var peepholes = this.peepholes;
             if (peepholes.length > 0) {
@@ -303,27 +300,8 @@ to single-step.
                     return true;
                 }, this);
                 if (peepholes.length > 0) {
-                    console.log("compiled one!");
                     peepholes[0].generate.call(this, method.bytes.subarray(this.pc - 1, this.pc - 1 + peepholes[0].byteCount));
                 }
-            }
-
-            var current = method.bytes.subarray(this.pc - 1, this.pc - 1 + 4);
-            if (current.length === 4) {
-                var name = Array.prototype.slice.call(current).map(function (e) {
-                    var flag = e & 0xF8;
-                    if ([0x00, 0x08, 0x10, 0x18, 0x20, 0x28, 0x40, 0x48, 0x70, 0x80].indexOf(flag) > -1) {
-                        return "push";
-                    }
-
-                    if ([0xb0].indexOf(flag) > -1) {
-                        return "numericop";
-                    }
-
-                    return e.toString(16);
-                }).toString(",");
-                peepholesCounter[name] = peepholesCounter[name] || 0;
-                peepholesCounter[name] ++;
             }
 
             switch (byte & 0xF8) {
