@@ -652,6 +652,18 @@ to single-step.
                 return;
         }
     },
+    generatePrimitiveSend: function (ic, prefix, num, suffix) {
+        if ((ic.primIndex > 255) && (ic.primIndex < 520)) {
+            return;
+        }
+
+        this.source.push(
+            "var ic = vm.method.ic[", this.pc ,"];",
+            "if (ic.sqClass === vm.getClass(vm.stackValue(", ic.argCount ,")) && ic.selector === ", prefix, num, suffix ," && ic.primIndex === ", ic.primIndex , ") {",
+                "sendDone = vm.primHandler.primitiveFunctions[", ic.primIndex ,"](", ic.primIndex, ", ", ic.argCount, ", ic.method, vm.primHandler);",
+            "}"
+        );
+    },
     generateSend: function(prefix, num, suffix, numArgs, superSend, ic) {
         if (this.debug) this.generateDebugCode("send " + (prefix === "lit[" ? this.method.pointers[num].bytesAsString() : "..."));
         this.generateLabel();
@@ -659,22 +671,13 @@ to single-step.
         this.source.push("vm.pc = ", this.pc, "; var sendDone = false;");
 
         if (ic && ic.primIndex > 0 && ic.super === superSend && ic.argCount === numArgs) {
-            //debugger;
-            this.source.push([
-
-                "var ic = vm.method.ic[", this.pc ,"];",
-
-                "if (ic.sqClass === vm.getClass(vm.stackValue(", numArgs ,")) && ic.selector === ", prefix, num, suffix ,") {",
-                    "if (vm.tryPrimitive(ic.primIndex, ", numArgs, ", ic.method)) {",
-                        "sendDone = true;",
-                    "}",
-                "}"].join("\n")
-            );
+            this.generatePrimitiveSend(ic, prefix, num, suffix);
         }
 
         // set pc, activate new method, and return to main loop
         // unless the method was a successfull primitive call (no context change)
         this.source.push(
+            "if (sendDone) vm.sendCount++;",
             "if (!sendDone) vm.send(", prefix, num, suffix, ", ", numArgs, ", ", superSend, "); ",
             "if (context !== vm.activeContext || vm.breakOutOfInterpreter !== false) return bytecodes + ", this.pc, ";\n");
         this.needsBreak = false; // already checked
