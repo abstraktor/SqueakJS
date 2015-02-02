@@ -668,16 +668,18 @@ to single-step.
         if (this.debug) this.generateDebugCode("send " + (prefix === "lit[" ? this.method.pointers[num].bytesAsString() : "..."));
         this.generateLabel();
 
-        this.source.push("vm.pc = ", this.pc, "; var sendDone = false;");
+        this.source.push("vm.pc = ", this.pc, ";");
 
         if (ic && ic.primIndex > 0 && ic.super === superSend && ic.argCount === numArgs) {
+            this.source.push("var sendDone = false;");
             this.generatePrimitiveSend(ic, prefix, num, suffix);
+            this.source.push("if (!sendDone) ");
         }
 
         // set pc, activate new method, and return to main loop
         // unless the method was a successfull primitive call (no context change)
         this.source.push(
-            "if (sendDone) vm.sendCount++;",
+            "vm.send(", prefix, num, suffix, ", ", numArgs, ", ", superSend, "); ",
             "if (!sendDone) vm.send(", prefix, num, suffix, ", ", numArgs, ", ", superSend, "); ",
             "if (context !== vm.activeContext || vm.breakOutOfInterpreter !== false) return bytecodes + ", this.pc, ";\n");
         this.needsBreak = false; // already checked
