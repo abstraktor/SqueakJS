@@ -2335,8 +2335,11 @@ Object.subclass('Squeak.Interpreter',
         this.executeNewMethod(rcvr, method, argCount, 0);
     },
     findSelectorInClass: function(selector, argCount, startingClass) {
-        var cacheEntry = this.findMethodCacheEntry(selector, startingClass);
-        if (cacheEntry.method) return cacheEntry; // Found it in the method cache
+        var cacheEntry = {
+            selector: selector,
+            lkupClass: startingClass
+        };
+
         var currentClass = startingClass;
         var mDict;
         while (!currentClass.isNil) {
@@ -2581,29 +2584,6 @@ Object.subclass('Squeak.Interpreter',
         this.push(orgReceiver);
         this.send(runWithIn, 3, false);
         return true;
-    },
-    findMethodCacheEntry: function(selector, lkupClass) {
-        //Probe the cache, and return the matching entry if found
-        //Otherwise return one that can be used (selector and class set) with method == null.
-        //Initial probe is class xor selector, reprobe delta is selector
-        //We do not try to optimize probe time -- all are equally 'fast' compared to lookup
-        //Instead we randomize the reprobe so two or three very active conflicting entries
-        //will not keep dislodging each other
-        var entry;
-        this.methodCacheRandomish = (this.methodCacheRandomish + 1) & 3;
-        var firstProbe = (selector.hash ^ lkupClass.hash) & this.methodCacheMask;
-        var probe = firstProbe;
-        for (var i = 0; i < 4; i++) { // 4 reprobes for now
-            entry = this.methodCache[probe];
-            if (entry.selector === selector && entry.lkupClass === lkupClass) return entry;
-            if (i === this.methodCacheRandomish) firstProbe = probe;
-            probe = (probe + selector.hash) & this.methodCacheMask;
-        }
-        entry = this.methodCache[firstProbe];
-        entry.lkupClass = lkupClass;
-        entry.selector = selector;
-        entry.method = null;
-        return entry;
     },
     flushMethodCache: function() { //clear all cache entries (prim 89)
         console.log("flush cache");
