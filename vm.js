@@ -2298,13 +2298,13 @@ Object.subclass('Squeak.Interpreter',
         var ic = this.method.ic[this.pc];
         var entry;
 
-        if (!ic || ic.argCount !== argCount || ic.selector !== selector || ic.super !== doSuper || ic.sqClass !== this.getClass(newRcvr)) {
-            var lookupClass = this.getClass(newRcvr);
-            if (doSuper) {
-                lookupClass = this.method.methodClassForSuper();
-                lookupClass = lookupClass.pointers[Squeak.Class_superclass];
-            }
+        var lookupClass = this.getClass(newRcvr);
+        if (doSuper) {
+            lookupClass = this.method.methodClassForSuper();
+            lookupClass = lookupClass.pointers[Squeak.Class_superclass];
+        }
 
+        if (!ic) {
             entry = this.findSelectorInClass(selector, argCount, lookupClass);
 
             this.method.ic[this.pc] = {
@@ -2315,10 +2315,10 @@ Object.subclass('Squeak.Interpreter',
                 mClass: entry.mClass,
                 lkupClass: entry.lkupClass,
 
-                sqClass: this.getClass(newRcvr),
-                rcvr: newRcvr,
                 super: doSuper
             }
+        } else if (ic.lkupClass !== lookupClass || ic.argCount !== argCount || ic.selector !== selector || ic.super !== doSuper) {
+            entry = this.findSelectorInClass(selector, argCount, lookupClass);            
         } else {
             entry = ic;
         }
@@ -2326,7 +2326,7 @@ Object.subclass('Squeak.Interpreter',
         if (entry.primIndex) {
             //note details for verification of at/atput primitives
             this.verifyAtSelector = selector;
-            this.verifyAtClass = entry.lkupClass;
+            this.verifyAtClass = lookupClass;
         }
 
         this.executeNewMethod(newRcvr, entry.method, entry.argCount, entry.primIndex, entry.mClass, selector);
