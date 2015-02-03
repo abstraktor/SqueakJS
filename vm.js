@@ -1295,11 +1295,16 @@ Object.subclass('Squeak.Object',
                         this.float = 0.0;
                     } else
                         this.words = new Uint32Array(indexableSize);
-        } else // Bytes
+        } else { // Bytes
+            if (this.format >= 12) {
+                this.compiled = false;
+                this.ic = new Array();
+            }
             if (indexableSize > 0) {
                 // this.format |= -indexableSize & 3;       //deferred to writeTo()
                 this.bytes = new Uint8Array(indexableSize); //Methods require further init of pointers
             }
+        }
 
 //      Definition of Squeak's format code...
 //
@@ -1362,6 +1367,8 @@ Object.subclass('Squeak.Object',
                 oops = this.decodeWords(numLits+1, this.bits, littleEndian);
             this.pointers = this.decodePointers(numLits+1, oops, oopMap); //header+lits
             this.bytes = this.decodeBytes(nWords-(numLits+1), this.bits, numLits+1, this.format & 3);
+            this.compiled = false;
+            this.ic = new Array(this.bytes.byteLength);
         } else if (this.format >= 8) {
             //Formats 8..11 -- ByteArrays (and ByteStrings)
             if (nWords > 0)
@@ -2287,25 +2294,52 @@ Object.subclass('Squeak.Interpreter',
 'sending', {
     send: function(selector, argCount, doSuper) {
         var newRcvr = this.stackValue(argCount);
+
+        var ic = this.method.ic[this.pc];
+        var entry;
+
         var lookupClass = this.getClass(newRcvr);
         if (doSuper) {
             lookupClass = this.method.methodClassForSuper();
             lookupClass = lookupClass.pointers[Squeak.Class_superclass];
         }
-        var entry = this.findSelectorInClass(selector, argCount, lookupClass);
+
+        if (!ic) {
+            entry = this.findSelectorInClass(selector, argCount, lookupClass);
+
+            this.method.ic[this.pc] = {
+                method: entry.method,
+                argCount: entry.argCount,
+                primIndex: entry.primIndex,
+                selector: entry.selector,
+                mClass: entry.mClass,
+                lkupClass: entry.lkupClass,
+
+                super: doSuper
+            }
+        } else if (ic.lkupClass !== lookupClass || ic.argCount !== argCount || ic.selector !== selector || ic.super !== doSuper) {
+            entry = this.findSelectorInClass(selector, argCount, lookupClass);            
+        } else {
+            entry = ic;
+        }
+
         if (entry.primIndex) {
             //note details for verification of at/atput primitives
             this.verifyAtSelector = selector;
             this.verifyAtClass = lookupClass;
         }
+
         this.executeNewMethod(newRcvr, entry.method, entry.argCount, entry.primIndex, entry.mClass, selector);
     },
     sendAsPrimitiveFailure: function(rcvr, method, argCount) {
         this.executeNewMethod(rcvr, method, argCount, 0);
     },
     findSelectorInClass: function(selector, argCount, startingClass) {
-        var cacheEntry = this.findMethodCacheEntry(selector, startingClass);
-        if (cacheEntry.method) return cacheEntry; // Found it in the method cache
+        var cacheEntry = {
+            selector: selector,
+            lkupClass: startingClass
+        };
+
         var currentClass = startingClass;
         var mDict;
         while (!currentClass.isNil) {
@@ -2551,30 +2585,8 @@ Object.subclass('Squeak.Interpreter',
         this.send(runWithIn, 3, false);
         return true;
     },
-    findMethodCacheEntry: function(selector, lkupClass) {
-        //Probe the cache, and return the matching entry if found
-        //Otherwise return one that can be used (selector and class set) with method == null.
-        //Initial probe is class xor selector, reprobe delta is selector
-        //We do not try to optimize probe time -- all are equally 'fast' compared to lookup
-        //Instead we randomize the reprobe so two or three very active conflicting entries
-        //will not keep dislodging each other
-        var entry;
-        this.methodCacheRandomish = (this.methodCacheRandomish + 1) & 3;
-        var firstProbe = (selector.hash ^ lkupClass.hash) & this.methodCacheMask;
-        var probe = firstProbe;
-        for (var i = 0; i < 4; i++) { // 4 reprobes for now
-            entry = this.methodCache[probe];
-            if (entry.selector === selector && entry.lkupClass === lkupClass) return entry;
-            if (i === this.methodCacheRandomish) firstProbe = probe;
-            probe = (probe + selector.hash) & this.methodCacheMask;
-        }
-        entry = this.methodCache[firstProbe];
-        entry.lkupClass = lkupClass;
-        entry.selector = selector;
-        entry.method = null;
-        return entry;
-    },
     flushMethodCache: function() { //clear all cache entries (prim 89)
+        console.log("flush cache");
         for (var i = 0; i < this.methodCacheSize; i++) {
             this.methodCache[i].selector = null;   // mark it free
             this.methodCache[i].method = null;  // release the method
@@ -2582,6 +2594,7 @@ Object.subclass('Squeak.Interpreter',
         return true;
     },
     flushMethodCacheForSelector: function(selector) { //clear cache entries for selector (prim 119)
+        console.log("flush cache selector");
         for (var i = 0; i < this.methodCacheSize; i++)
             if (this.methodCache[i].selector === selector) {
                 this.methodCache[i].selector = null;   // mark it free
@@ -2590,6 +2603,7 @@ Object.subclass('Squeak.Interpreter',
         return true;
     },
     flushMethodCacheForMethod: function(method) { //clear cache entries for method (prim 116)
+        console.log("flush cache method");
         for (var i = 0; i < this.methodCacheSize; i++)
             if (this.methodCache[i].method === method) {
                 this.methodCache[i].selector = null;   // mark it free
