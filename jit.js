@@ -164,7 +164,7 @@ to single-step.
         p77: 2
     },
     peepholes: [
-        {
+        { // push push numericOp
             matches: function (counter, byte) {
                 var pushCodes = [0x00, 0x08, 0x10, 0x18, 0x20, 0x28, 0x30, 0x38, 0x40, 0x48, 0x50, 0x58, 0x70];
                 var flag = (byte & 0xF8);
@@ -219,6 +219,25 @@ to single-step.
                 "}"
                 );
 
+                return;
+            }
+        }, { // push popReturn
+            matches: function (counter, byte) {
+                var pushCodes = [0x00, 0x08, 0x10, 0x18, 0x20, 0x28, 0x30, 0x38, 0x40, 0x48, 0x50, 0x58, 0x70];
+                switch (counter) {
+                    case 0:
+                        return pushCodes.indexOf(byte & 0xF8) > -1;
+                    case 1:
+                        return byte === 0x7C;
+                }
+            },
+            byteCount: 2,
+            generate: function (bytes) {
+                if (this.debug) { this.generateDebugCode("optimized push popReturn"); }
+                this.generateLabel();
+                this.suppressNextLabel = true;
+                this.source.push(
+                    "vm.pc = ", this.pc+1, "; vm.doReturn(", this.getPush(bytes[0]), "); return bytecodes + ", this.pc+1, ";\n");
                 return;
             }
         }
