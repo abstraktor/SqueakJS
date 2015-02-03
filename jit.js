@@ -652,17 +652,32 @@ to single-step.
                 return;
         }
     },
-    generatePrimitiveSend: function (ic, prefix, num, suffix) {
-        if ((ic.primIndex > 255) && (ic.primIndex < 520)) {
-            return;
+    generateSpecialPrimitiveSend: function (primIndex) {
+        if (primIndex >= 264) {//return instvars
+            return "this.popNandPush(1, this.top().pointers[" + (primIndex - 264) +"]);";
         }
-
+        switch (primIndex) {
+            case 256: return ""; //return self
+            case 257: return "this.popNandPush(1, this.trueObj);"; //return true
+            case 258: return "this.popNandPush(1, this.falseObj);"; //return false
+            case 259: return "this.popNandPush(1, this.nilObj);"; //return nil
+        }
+        return "this.popNandPush(1, " + (primIndex - 261) + ");"; //return -1...2
+    },
+    generatePrimitiveSend: function (ic, prefix, num, suffix) {
         this.source.push(
             "var ic = vm.method.ic[", this.pc ,"];",
-            "if (ic.sqClass === vm.getClass(vm.stackValue(", ic.argCount ,")) && ic.selector === ", prefix, num, suffix ," && ic.primIndex === ", ic.primIndex , ") {",
-                "sendDone = vm.primHandler.primitiveFunctions[", ic.primIndex ,"](", ic.primIndex, ", ", ic.argCount, ", ic.method, vm.primHandler);",
-            "}"
+            "if (ic.sqClass === vm.getClass(vm.stackValue(", ic.argCount ,")) && ic.selector === ", prefix, num, suffix ," && ic.primIndex === ", ic.primIndex , ") {"
         );
+
+            if ((ic.primIndex > 255) && (ic.primIndex < 520)) {
+                this.source.push(this.generateSpecialPrimitiveSend(ic.primIndex));
+                this.source.push("sendDone = true;");
+            } else {
+                this.source.push("sendDone = vm.primHandler.primitiveFunctions[", ic.primIndex ,"](", ic.primIndex, ", ", ic.argCount, ", ic.method, vm.primHandler);");
+            }
+
+        this.source.push("}");
     },
     generateSend: function(prefix, num, suffix, numArgs, superSend, ic) {
         if (this.debug) this.generateDebugCode("send " + (prefix === "lit[" ? this.method.pointers[num].bytesAsString() : "..."));
