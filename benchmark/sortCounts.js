@@ -1,5 +1,4 @@
 
-var peepholes = Object.keys(peepholesCounter)
-peepholes.map(function (name) { return { name: name, count: peepholesCounter[name] }; })
-var data = peepholes.map(function (name) { return { name: name, count: peepholesCounter[name] }; })
-data.sort(function (a, b) { return b.count - a.count; })
+var peepholes = Object.keys(realPeepHolesCounter);
+var data = peepholes.map(function (name) { return { name: name, data: realPeepHolesCounter[name] }; })
+data.sort(function (a, b) { return b.data.counter - a.data.counter; })

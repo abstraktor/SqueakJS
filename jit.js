@@ -1,3 +1,55 @@
+var peepholesCounter = {};
+
+var peepholeNames = function (flag) {
+    switch (flag) {
+        case 0x00: case 0x08:
+        // load temporary variable
+        case 0x10: case 0x18:
+        // loadLiteral
+        case 0x20: case 0x28: case 0x30: case 0x38:
+        // loadLiteralIndirect
+        case 0x40: case 0x48: case 0x50: case 0x58:
+            return { stack: 1, name: "push" };
+        // storeAndPop rcvr
+        case 0x60:
+        // storeAndPop temp
+        case 0x68:
+            return { stack: -1, name: "pop" };
+        // Quick push
+        case 0x70:
+            return { stack: 1, name: "push" };
+        // Quick return
+        case 0x78:
+            return { stack: 0, name: "return" };
+        // Extended bytecodes 
+        case 0x80:
+            return { stack: 1, name: "push" };
+        case 0x88:
+            return { stack: null, name: "extend" };
+        // short jump
+        case 0x90:
+            return { stack: 0, name: "jump" };
+        // short conditional jump
+        case 0x98:
+            return { stack: -1, name: "jumpif" };
+        // long jump, forward and back
+        case 0xA0:
+            return { stack: 0, name: "jump" };
+        // long conditional jump
+        case 0xA8:
+            return { stack: -1, name: "jumpif" };
+        // SmallInteger ops: + - < > <= >= = ~= * /  @ lshift: lxor: land: lor:
+        case 0xB0: case 0xB8:
+            return { stack: -1, name: "numericop" };
+        // quick primitives: // at:, at:put:, size, next, nextPut:, ...
+        case 0xC0: case 0xC8:
+            return { stack: null, name: "quickPrim" };
+        // send literal selector
+        case 0xD0: case 0xD8: case 0xE0: case 0xE8: case 0xF0: case 0xF8:
+            return { stack: 0, name: "send" };
+    }
+};
+
 module('users.bert.SqueakJS.jit').requires("users.bert.SqueakJS.vm").toRun(function() {
 /*
  * Copyright (c) 2014 Bert Freudenberg
@@ -308,6 +360,32 @@ to single-step.
                 }, this);
                 if (peepholes.length > 0) {
                     peepholes[0].generate.call(this, method.bytes.subarray(this.pc - 1, this.pc - 1 + peepholes[0].byteCount));
+                }
+            }
+
+            var len = 3;
+            var current = method.bytes.subarray(this.pc - 1, this.pc - 1 + len);
+            if (current.length === len) {
+                var use = true, stackCounter = 0;
+
+                var name = Array.prototype.slice.call(current).map(function (e) {
+                    var flag = e & 0xF8;
+
+                    var name = peepholeNames(flag);
+
+                    if (name && name.stack) {
+                        stackCounter += name.stack;
+                        return name.name;
+                    } else {
+                        use = false;
+                        return "";
+                    }
+                }).toString(",");
+
+                if (use && stackCounter === 1) {
+                    peepholesCounter[name] = peepholesCounter[name] || { counter: 0, stack: stackCounter, original: [] };
+                    peepholesCounter[name].counter ++;
+                    //peepholesCounter[name].original.push(current);
                 }
             }
 
