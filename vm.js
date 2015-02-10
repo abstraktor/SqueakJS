@@ -2378,14 +2378,14 @@ Object.subclass('Squeak.Interpreter',
             entry.method.lastFlush = entry.method.lastFlush || 1;
             selector.lastFlush = selector.lastFlush || 1;
 
-            this.method.ic[this.pc] = {
-                added: new Date().getTime(),
-                method: entry.method,
-                primIndex: entry.primIndex,
-                mClass: entry.mClass,
-                lkupClass: entry.lkupClass,
-                argCount: entry.argCount
-            }
+            if (entry.argCount === argCount)
+                this.method.ic[this.pc] = {
+                    added: new Date().getTime(),
+                    method: entry.method,
+                    primIndex: entry.primIndex,
+                    mClass: entry.mClass,
+                    lkupClass: entry.lkupClass
+                }
         } else if (ic.lkupClass !== lookupClass) {
             entry = this.findSelectorInClass(selector, argCount, lookupClass);            
         } else {
@@ -2398,7 +2398,7 @@ Object.subclass('Squeak.Interpreter',
             this.verifyAtClass = lookupClass;
         }
 
-        this.executeNewMethod(newRcvr, entry.method, entry.argCount, entry.primIndex, entry.mClass, selector);
+        this.executeNewMethod(newRcvr, entry.method, entry.argCount || argCount, entry.primIndex, entry.mClass, selector);
     },
     sendAsPrimitiveFailure: function(rcvr, method, argCount) {
         this.executeNewMethod(rcvr, method, argCount, 0);
