@@ -1814,6 +1814,7 @@ Object.subclass('Squeak.Interpreter',
         this.nRecycledContexts = 0;
         this.nAllocatedContexts = 0;
         this.lastFlush = 0;
+        this.mayBeFlushed = 0;
         this.breakOutOfInterpreter = false;
         this.breakOutTick = 0;
         this.breakOnMethod = null; // method to break on
@@ -2299,13 +2300,16 @@ Object.subclass('Squeak.Interpreter',
             lookupClass = lookupClass.pointers[Squeak.Class_superclass];
         }
 
-        if (!ic) {
+        if (!ic || (ic.added < this.mayBeFlushed && ic.added < Math.max(this.lastFlush, selector.lastFlush, ic.method.lastFlush))) {
             entry = this.findSelectorInClass(selector, argCount, lookupClass);
 
+            entry.method.lastFlush = entry.method.lastFlush || 1;
+            selector.lastFlush = selector.lastFlush || 1;
+
             this.method.ic[this.pc] = {
+                added: new Date().getTime(),
                 method: entry.method,
                 primIndex: entry.primIndex,
-                selector: entry.selector,
                 mClass: entry.mClass,
                 lkupClass: entry.lkupClass
             }
@@ -2578,32 +2582,18 @@ Object.subclass('Squeak.Interpreter',
         return true;
     },
     flushMethodCache: function() { //clear all cache entries (prim 89)
-        console.log("flush cache");
         this.lastFlush = new Date().getTime();
-        /*for (var i = 0; i < this.methodCacheSize; i++) {
-            this.methodCache[i].selector = null;   // mark it free
-            this.methodCache[i].method = null;  // release the method
-        }*/
+        this.mayBeFlushed = new Date().getTime();
         return true;
     },
     flushMethodCacheForSelector: function(selector) { //clear cache entries for selector (prim 119)
-        console.log("flush cache selector");
         selector.lastFlush = new Date().getTime();
-        /*for (var i = 0; i < this.methodCacheSize; i++)
-            if (this.methodCache[i].selector === selector) {
-                this.methodCache[i].selector = null;   // mark it free
-                this.methodCache[i].method = null;  // release the method
-            }*/
+        this.mayBeFlushed = new Date().getTime();
         return true;
     },
     flushMethodCacheForMethod: function(method) { //clear cache entries for method (prim 116)
-        console.log("flush cache method");
         method.lastFlush = new Date().getTime();
-        /*for (var i = 0; i < this.methodCacheSize; i++)
-            if (this.methodCache[i].method === method) {
-                this.methodCache[i].selector = null;   // mark it free
-                this.methodCache[i].method = null;  // release the method
-            }*/
+        this.mayBeFlushed = new Date().getTime();
         return true;
     },
     flushMethodCacheAfterBecome: function(mutations) {
