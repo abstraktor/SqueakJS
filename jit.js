@@ -1,4 +1,5 @@
 module('users.bert.SqueakJS.jit').requires("users.bert.SqueakJS.vm").toRun(function() {
+"use strict";    
 /*
  * Copyright (c) 2014 Bert Freudenberg
  *
@@ -459,12 +460,12 @@ to single-step.
                     break;
                 // long jump, forward and back
                 case 0xA0:
-                    byte2 = method.bytes[this.pc++];
+                    var byte2 = method.bytes[this.pc++];
                     this.generateJump(((byte&7)-4) * 256 + byte2);
                     break;
                 // long conditional jump
                 case 0xA8:
-                    byte2 = method.bytes[this.pc++];
+                    var byte2 = method.bytes[this.pc++];
                     this.generateJumpIf(byte < 0xAC, (byte & 3) * 256 + byte2);
                     break;
                 // SmallInteger ops: + - < > <= >= = ~= * /  @ lshift: lxor: land: lor:
