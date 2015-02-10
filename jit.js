@@ -852,17 +852,17 @@ to single-step.
         }
         return "this.popNandPush(1, " + (primIndex - 261) + ");"; //return -1...2
     },
-    generatePrimitiveSend: function (ic, prefix, num, suffix) {
+    generatePrimitiveSend: function (ic, prefix, num, suffix, numArgs) {
         this.source.push(
             "var ic = vm.method.ic[", this.pc ,"];",
-            "if (ic.sqClass === vm.getClass(vm.stackValue(", ic.argCount ,")) && ic.selector === ", prefix, num, suffix ," && ic.primIndex === ", ic.primIndex , ") {"
+            "if (ic.sqClass === vm.getClass(vm.stackValue(", numArgs ,"))) {"
         );
 
             if ((ic.primIndex > 255) && (ic.primIndex < 520)) {
                 this.source.push(this.generateSpecialPrimitiveSend(ic.primIndex));
                 this.source.push("sendDone = true;");
             } else {
-                this.source.push("sendDone = vm.primHandler.primitiveFunctions[", ic.primIndex ,"](", ic.primIndex, ", ", ic.argCount, ", ic.method, vm.primHandler);");
+                this.source.push("sendDone = vm.primHandler.primitiveFunctions[", ic.primIndex ,"](", ic.primIndex, ", ", numArgs, ", ic.method, vm.primHandler);");
             }
 
         this.source.push("}");
@@ -873,9 +873,9 @@ to single-step.
 
         this.source.push("vm.pc = ", this.pc, ";");
 
-        if (ic && ic.primIndex > 0 && ic.super === superSend && ic.argCount === numArgs) {
+        if (ic && ic.primIndex > 0) {
             this.source.push("var sendDone = false;");
-            this.generatePrimitiveSend(ic, prefix, num, suffix);
+            this.generatePrimitiveSend(ic, prefix, num, suffix, numArgs, superSend);
             this.source.push("if (!sendDone) ");
         }
 

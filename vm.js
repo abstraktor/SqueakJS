@@ -1813,12 +1813,7 @@ Object.subclass('Squeak.Interpreter',
         this.reclaimableContextCount = 0;
         this.nRecycledContexts = 0;
         this.nAllocatedContexts = 0;
-        this.methodCacheSize = 1024;
-        this.methodCacheMask = this.methodCacheSize - 1;
-        this.methodCacheRandomish = 0;
-        this.methodCache = [];
-        for (var i = 0; i < this.methodCacheSize; i++)
-            this.methodCache[i] = {lkupClass: null, selector: null, method: null, primIndex: 0, argCount: 0, mClass: null};
+        this.lastFlush = 0;
         this.breakOutOfInterpreter = false;
         this.breakOutTick = 0;
         this.breakOnMethod = null; // method to break on
@@ -2309,15 +2304,12 @@ Object.subclass('Squeak.Interpreter',
 
             this.method.ic[this.pc] = {
                 method: entry.method,
-                argCount: entry.argCount,
                 primIndex: entry.primIndex,
                 selector: entry.selector,
                 mClass: entry.mClass,
-                lkupClass: entry.lkupClass,
-
-                super: doSuper
+                lkupClass: entry.lkupClass
             }
-        } else if (ic.lkupClass !== lookupClass || ic.argCount !== argCount || ic.selector !== selector || ic.super !== doSuper) {
+        } else if (ic.lkupClass !== lookupClass) {
             entry = this.findSelectorInClass(selector, argCount, lookupClass);            
         } else {
             entry = ic;
@@ -2329,7 +2321,7 @@ Object.subclass('Squeak.Interpreter',
             this.verifyAtClass = lookupClass;
         }
 
-        this.executeNewMethod(newRcvr, entry.method, entry.argCount, entry.primIndex, entry.mClass, selector);
+        this.executeNewMethod(newRcvr, entry.method, argCount, entry.primIndex, entry.mClass, selector);
     },
     sendAsPrimitiveFailure: function(rcvr, method, argCount) {
         this.executeNewMethod(rcvr, method, argCount, 0);
@@ -2587,28 +2579,31 @@ Object.subclass('Squeak.Interpreter',
     },
     flushMethodCache: function() { //clear all cache entries (prim 89)
         console.log("flush cache");
-        for (var i = 0; i < this.methodCacheSize; i++) {
+        this.lastFlush = new Date().getTime();
+        /*for (var i = 0; i < this.methodCacheSize; i++) {
             this.methodCache[i].selector = null;   // mark it free
             this.methodCache[i].method = null;  // release the method
-        }
+        }*/
         return true;
     },
     flushMethodCacheForSelector: function(selector) { //clear cache entries for selector (prim 119)
         console.log("flush cache selector");
-        for (var i = 0; i < this.methodCacheSize; i++)
+        selector.lastFlush = new Date().getTime();
+        /*for (var i = 0; i < this.methodCacheSize; i++)
             if (this.methodCache[i].selector === selector) {
                 this.methodCache[i].selector = null;   // mark it free
                 this.methodCache[i].method = null;  // release the method
-            }
+            }*/
         return true;
     },
     flushMethodCacheForMethod: function(method) { //clear cache entries for method (prim 116)
         console.log("flush cache method");
-        for (var i = 0; i < this.methodCacheSize; i++)
+        method.lastFlush = new Date().getTime();
+        /*for (var i = 0; i < this.methodCacheSize; i++)
             if (this.methodCache[i].method === method) {
                 this.methodCache[i].selector = null;   // mark it free
                 this.methodCache[i].method = null;  // release the method
-            }
+            }*/
         return true;
     },
     flushMethodCacheAfterBecome: function(mutations) {
